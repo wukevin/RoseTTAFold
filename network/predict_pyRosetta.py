@@ -49,7 +49,7 @@ SE3_param = {
 MODEL_PARAM['SE3_param'] = SE3_param
 
 class Predictor():
-    def __init__(self, model_dir=None, use_cpu=False):
+    def __init__(self, model_dir=None, use_cpu=False, intermediate_rep_dir=None):
         if model_dir == None:
             self.model_dir = "%s/models"%(os.path.dirname(os.path.realpath(__file__)))
         else:
@@ -64,7 +64,7 @@ class Predictor():
         self.active_fn = nn.Softmax(dim=1)
 
         # define model & load model
-        self.model = RoseTTAFoldModule(**MODEL_PARAM).to(self.device)
+        self.model = RoseTTAFoldModule(inter_dir=intermediate_rep_dir, **MODEL_PARAM).to(self.device)
         could_load = self.load_model(self.model_name)
         if not could_load:
             print ("ERROR: failed to load model")
@@ -184,6 +184,7 @@ def get_args():
     parser.add_argument("--db", default="%s/pdb100_2021Mar03/pdb100_2021Mar03"%script_dir,
                         help="Path to template database [%s/pdb100_2021Mar03]"%script_dir)
     parser.add_argument("--cpu", dest='use_cpu', default=False, action='store_true')
+    parser.add_argument("--interdir", type=str, default=None, help="Write intermediate representations to given dir")
 
     args = parser.parse_args()
     return args
@@ -197,5 +198,9 @@ if __name__ == "__main__":
 
     # Always run predictor
     # if not os.path.exists("%s.npz"%args.out_prefix):
-    pred = Predictor(model_dir=args.model_dir, use_cpu=args.use_cpu)
+    pred = Predictor(
+        model_dir=args.model_dir,
+        use_cpu=args.use_cpu,
+        intermediate_rep_dir=args.interdir,
+    )
     pred.predict(args.a3m_fn, args.out_prefix, args.hhr, args.atab)

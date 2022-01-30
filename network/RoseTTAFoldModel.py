@@ -12,7 +12,12 @@ class RoseTTAFoldModule(nn.Module):
                  d_hidden=64, r_ff=4, n_resblock=1, p_drop=0.1, 
                  performer_L_opts=None, performer_N_opts=None,
                  SE3_param={'l0_in_features':32, 'l0_out_features':16, 'num_edge_features':32}, 
-                 use_templ=False):
+                 use_templ=False,
+                 inter_dir=None):
+        """
+        User-added: if inter_dir is given, write intermediate representations from IterativeFeatureExtractor
+        to files under that dir
+        """
         super(RoseTTAFoldModule, self).__init__()
         self.use_templ = use_templ
         #
@@ -35,7 +40,9 @@ class RoseTTAFoldModule(nn.Module):
                                                         p_drop=p_drop,
                                                         performer_N_opts=performer_N_opts,
                                                         performer_L_opts=performer_L_opts,
-                                                        SE3_param=SE3_param)
+                                                        SE3_param=SE3_param,
+                                                        inter_dir=inter_dir,  # User-added
+                                                        )
         self.c6d_predictor = DistanceNetwork(d_pair, p_drop=p_drop)
 
     def forward(self, msa, seq, idx, t1d=None, t2d=None):

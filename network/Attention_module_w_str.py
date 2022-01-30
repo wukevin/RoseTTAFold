@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,6 +17,8 @@ import dgl
 #    - 2) MSA2MSA:  process MSA features using Transformer (or Performer) encoder. (Attention over L first followed by attention over N)
 #    - 3) Pair2MSA: Update MSA features using pair feature
 #    - 4) Pair2Pair: process pair features using Transformer (or Performer) encoder.
+
+import numpy as np
 
 def make_graph(xyz, pair, idx, top_k=64, kmin=9):
     '''
@@ -412,10 +416,15 @@ class IterativeFeatureExtractor(nn.Module):
                  n_head_msa=8, n_head_pair=8, r_ff=4, 
                  n_resblock=1, p_drop=0.1,
                  performer_L_opts=None, performer_N_opts=None,
-                 SE3_param={'l0_in_features':32, 'l0_out_features':16, 'num_edge_features':32}):
+                 SE3_param={'l0_in_features':32, 'l0_out_features':16, 'num_edge_features':32},
+                 inter_dir=None):
         super(IterativeFeatureExtractor, self).__init__()
         self.n_module = n_module
         self.n_module_str = n_module_str
+        self.inter_dir = inter_dir
+        if self.inter_dir is not None and not os.path.isdir(self.inter_dir):
+            print(f"Creating dir for intermediate reps: {self.inter_dir}")
+            os.makedirs(self.inter_dir)
         #
         self.initial = Pair2Pair(n_layer=n_layer, n_att_head=n_head_pair,
                                  n_feat=d_pair, r_ff=r_ff, p_drop=p_drop,
@@ -467,6 +476,16 @@ class IterativeFeatureExtractor(nn.Module):
             for i_m in range(self.n_module):
                 # extract features from MSA & update original pair features
                 msa, pair = self.iter_block_1[i_m](msa, pair)
+                # Shapes:
+                # msa: 1, 428, 138, 384
+                # pair: 1, 138, 138, 288
+                # print(f"Block 1, iteration {i_m} with shapes {msa.shape} {pair.shape}")
+                if self.inter_dir is not None:
+                    np.savez_compressed(
+                        os.path.join(self.inter_dir, f"block1_iter{i_m}.npz"),
+                        msa=msa.detach().cpu().numpy(),
+                        pair=pair.detach().cpu().numpy(),
+                    )
        
         xyz = self.init_str(seq1hot, idx, msa, pair)
 
@@ -474,7 +493,26 @@ class IterativeFeatureExtractor(nn.Module):
         if self.n_module_str > 0:
             for i_m in range(self.n_module_str):
                 msa, pair, xyz = self.iter_block_2[i_m](msa, pair, xyz, seq1hot, idx, top_k=top_ks[i_m])
+                # xyz: 1, 138, 3, 3
+                # print(f"Block 2, iteration {i_m} with shapes {msa.shape} {pair.shape} {xyz.shape}")
+                if self.inter_dir is not None:
+                    np.savez_compressed(
+                        os.path.join(self.inter_dir, f"block2_iter{i_m}.npz"),
+                        msa=msa.detach().cpu().numpy(),
+                        pair=pair.detach().cpu().numpy(),
+                        xyz=xyz.detach().cpu().numpy(),
+                    )
 
         msa, pair, xyz, lddt = self.final(msa, pair, xyz, seq1hot, idx)
+        # lddt: 1, 138
+        # print(f"Final block with shapes          {msa.shape} {pair.shape} {xyz.shape} {lddt.shape}")
+        if self.inter_dir is not None:
+            np.savez_compressed(
+                os.path.join(self.inter_dir, f"block_final.npz"),
+                msa=msa.detach().cpu().numpy(),
+                pair=pair.detach().cpu().numpy(),
+                xyz=xyz.detach().cpu().numpy(),
+                lddt=lddt.detach().cpu().numpy(),
+            )
 
         return msa[:,0], pair, xyz, lddt
