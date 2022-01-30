@@ -195,6 +195,7 @@ if __name__ == "__main__":
     ffdb = FFindexDB(read_index(FFDB+'_pdb.ffindex'),
                      read_data(FFDB+'_pdb.ffdata'))
 
-    if not os.path.exists("%s.npz"%args.out_prefix):
-        pred = Predictor(model_dir=args.model_dir, use_cpu=args.use_cpu)
-        pred.predict(args.a3m_fn, args.out_prefix, args.hhr, args.atab)
+    # Always run predictor
+    # if not os.path.exists("%s.npz"%args.out_prefix):
+    pred = Predictor(model_dir=args.model_dir, use_cpu=args.use_cpu)
+    pred.predict(args.a3m_fn, args.out_prefix, args.hhr, args.atab)
