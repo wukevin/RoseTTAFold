@@ -127,3 +127,4 @@ echo "Done"
 
 # Copy files from temporary directory out to final directory
 rsync -a $WDIR/ $FINAL_DIR
+rm -rf $WDIR
