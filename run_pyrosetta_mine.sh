@@ -20,8 +20,10 @@ MEM="64" # max memory (in GB)
 
 # Inputs:
 IN="$1"                # input.fasta
-WDIR=`realpath -s $2`  # working folder
-
+# WDIR=`realpath -s $2`  # working folder
+# Create working directory on scratch for better IO performance and reliability
+WDIR=$(mktemp -d -t rosetta-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX --tmpdir=$SCRATCH/rosettaout)  # https://code-maven.com/create-temporary-directory-on-linux-using-bash
+FINAL_DIR=`realpath -s $2`
 
 LEN=`tail -n1 $IN | wc -m`
 
@@ -73,7 +75,7 @@ then
         -o $WDIR/t000_.3track \
         --hhr $WDIR/t000_.hhr \
         --atab $WDIR/t000_.atab \
-        --db $DB 1> $WDIR/log/network.stdout 2> $WDIR/log/network.stderr
+        --db $DB 1> $WDIR/log/network.stdout 2> $WDIR/log/network.stderr \
         --interdir $WDIR/intermediate_reps
 fi
 
@@ -122,3 +124,6 @@ then
     echo "Final models saved in: $2/model"
 fi
 echo "Done"
+
+# Copy files from temporary directory out to final directory
+rsync -a $WDIR/ $FINAL_DIR
